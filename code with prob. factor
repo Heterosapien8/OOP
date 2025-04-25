@@ -1,0 +1,326 @@
+from abc import ABC, abstractmethod
+from datetime import datetime
+from difflib import SequenceMatcher
+import re
+
+class FestivalBot(ABC):
+    @abstractmethod
+    def greet(self): pass
+
+    @abstractmethod
+    def handle_query(self, query): pass
+
+    @abstractmethod
+    def show_schedule(self, day): pass
+
+
+class TechnovateBot(FestivalBot):
+    def __init__(self):
+        self.__schedule = {
+            "day 1": {
+                "10:30": "Opening Ceremony (Auditorium)",
+                "12:00": "Mic Mania (Auditorium)",
+                "15:00": "Singing (Auditorium)",
+                "16:00": "Nukkad Natak (Parking Area), Hackathon Begins",
+                "16:30": "Cricket (Ground near BALCO)",
+                "18:00": "Badminton (Sports Complex), Table Tennis (Gym), Volleyball (Court), Basketball (Sports Complex), Football (Football Ground)"
+            },
+            "day 2": {
+                "09:00": "Hackathon Continues",
+                "11:00": "Quiz Runner (Room 121)",
+                "12:00": "Groovify (Auditorium)",
+                "15:00": "Group Dance (Auditorium), ComicCon (Palm Park)",
+                "16:30": "Cricket (Ground near BALCO)",
+                "18:00": "Badminton (Sports Complex), Table Tennis (Gym), Volleyball (Court), Basketball (Sports Complex), Football (Football Ground)"
+            },
+            "day 3": {
+                "10:00": "Fiducia – Preliminary Round (Auditorium)",
+                "11:00": "Coding Speedrun (Network Lab)",
+                "12:00": "Fiducia – Final Round (Auditorium)",
+                "16:30": "Cricket (Ground near BALCO)",
+                "18:00": "Badminton (Sports Complex), Table Tennis (Gym), Volleyball (Court), Basketball (Sports Complex), Football (Football Ground)",
+                "20:00": "Artist Night – Seedhe Maut Live Performance"
+            }
+        }
+
+        self.__theme_2025 = "Innovation and Collaboration Redefined"
+        
+        # Enhanced command mapping with keywords
+        self.__commands = {
+            "what is technovate": {
+                "func": self.about_technovate,
+                "keywords": ["what", "technovate", "about", "festival", "tell me", "explain"]
+            },
+            "theme for 2025": {
+                "func": self.theme,
+                "keywords": ["theme", "2025", "this year", "concept", "motto"]
+            },
+            "team required": {
+                "func": self.team_requirement,
+                "keywords": ["team", "size", "members", "required", "how many"]
+            },
+            "technical events": {
+                "func": self.tech_events,
+                "keywords": ["technical", "tech", "events", "competitions", "hackathon", "coding"]
+            },
+            "cultural events": {
+                "func": self.cultural_events,
+                "keywords": ["cultural", "dance", "drama", "music", "performances", "art"]
+            },
+            "talent show": {
+                "func": self.open_stage,
+                "keywords": ["open", "mic", "stage", "talent", "show", "perform"]
+            },
+            "external participants": {
+                "func": self.external_participation,
+                "keywords": ["external", "outsiders", "allowed", "outside", "college", "other"]
+            },
+            "how to register": {
+                "func": self.registration_info,
+                "keywords": ["how", "register", "sign up", "participate", "join"]
+            },
+            "register for events": {
+                "func": self.event_registration,
+                "keywords": ["register", "event", "sign", "participate", "enter"]
+            },
+            "accommodation": {
+                "func": self.accommodation_info,
+                "keywords": ["accommodation", "stay", "hostel", "room", "lodging"]
+            },
+            "food": {
+                "func": self.food_info,
+                "keywords": ["food", "canteen", "eating", "stalls", "meal"]
+            },
+            "contact": {
+                "func": self.contact_info,
+                "keywords": ["contact", "reach", "support", "help", "email", "phone"]
+            },
+            "last year theme": {
+                "func": self.previous_theme,
+                "keywords": ["last year", "previous", "theme", "2024", "before"]
+            },
+            "celebrity guests": {
+                "func": self.celeb_guests,
+                "keywords": ["celebrities", "guests", "stars", "performers", "famous"]
+            },
+            "sponsors": {
+                "func": self.past_sponsors,
+                "keywords": ["sponsors", "sponsorship", "brands", "supporters"]
+            },
+            "help": {
+                "func": self.__help,
+                "keywords": ["help", "commands", "what can you do", "options"]
+            }
+        }
+
+    def greet(self):
+        print("\n🎉 Welcome to Technovate 6.0 Bot! Ask me anything about the event schedule, day-wise or time-wise.")
+        print("Type 'help' for suggestions or 'exit' to quit.")
+
+    def handle_query(self, query):
+        query = query.lower().strip()
+        
+        # First check for day/time queries
+        if "day" in query and any(char.isdigit() for char in query):
+            self.__handle_day_time_query(query)
+            return
+            
+        # Then check for best matching command
+        best_match = self.__find_best_match(query)
+        if best_match:
+            self.__commands[best_match]["func"]()
+        else:
+            print("Bot: Hmm, I didn't catch that. Try asking like 'What's on Day 2 at 3 PM?' or type 'help'.")
+
+    def __find_best_match(self, query):
+        best_score = 0
+        best_match = None
+        
+        for command, data in self.__commands.items():
+            # Check direct match first
+            if any(keyword in query for keyword in data["keywords"]):
+                return command
+                
+            # Calculate similarity score for each keyword
+            for keyword in data["keywords"]:
+                ratio = SequenceMatcher(None, query, keyword).ratio()
+                if ratio > best_score:
+                    best_score = ratio
+                    best_match = command
+                    
+        # Only return if we have a reasonably good match
+        return best_match if best_score > 0.6 else None
+
+    def show_schedule(self, day):
+        schedule = self.__schedule.get(day, {})
+        if not schedule:
+            print("Bot: Sorry, I don't have events listed for that day.")
+            return
+        print(f"\n📅 Schedule for {day.title()}:")
+        for time, event in schedule.items():
+            print(f"🕒 {time} – {event}")
+
+    def __handle_day_time_query(self, query):
+        day = ""
+        for d in ["day 1", "day 2", "day 3"]:
+            if d in query:
+                day = d
+                break
+
+        time = self.__extract_time(query)
+
+        if not day:
+            print("Bot: Please mention a valid day (Day 1, Day 2, Day 3).")
+            return
+
+        if not time:
+            print(f"Bot: Here's everything on {day.title()}:")
+            self.show_schedule(day)
+            return
+
+        event = self.__schedule.get(day, {}).get(time)
+        if event:
+            print(f"Bot: At {time} on {day.title()}, you'll find:\n👉 {event}")
+        else:
+            print(f"Bot: Hmm, no event exactly at {time} on {day.title()}. Here's what we have that day:")
+            self.show_schedule(day)
+
+    def __extract_time(self, text):
+        text = text.replace("pm", " PM").replace("am", " AM")
+        time_patterns = [
+            r'(\d{1,2}):(\d{2})\s*PM',
+            r'(\d{1,2}):(\d{2})\s*AM',
+            r'(\d{1,2})\s*PM',
+            r'(\d{1,2})\s*AM'
+        ]
+        
+        for pattern in time_patterns:
+            match = re.search(pattern, text)
+            if match:
+                hour = int(match.group(1))
+                minute = int(match.group(2)) if len(match.groups()) > 1 else 0
+                if "PM" in text and hour != 12:
+                    hour += 12
+                return f"{hour:02d}:{minute:02d}"
+        return None
+
+    def __help(self):
+        print("\nBot: You can ask me about:")
+        print("- Event schedules (e.g., 'What's on Day 2 at 4 PM?')")
+        print("- Festival information (e.g., 'What is Technovate?')")
+        print("- Registration (e.g., 'How to register for events?')")
+        print("- Technical/Cultural events")
+        print("- Accommodation, food, contact info")
+        print("- Theme, sponsors, celebrity guests")
+        print("\nTry asking in your own words!")
+
+    # ------------------- FAQ Functions -------------------
+    def about_technovate(self):
+        print("\nBot: Technovate is our college's annual tech-cultural fest, blending technology events with cultural performances over three exciting days!")
+
+    def theme(self):
+        print(f"\nBot: This year's theme is \"{self.__theme_2025}\" — celebrating how innovation and collaboration can redefine possibilities!")
+
+    def team_requirement(self):
+        print("\nBot: Team requirements vary by event:")
+        print("- Technical events: 1-4 members")
+        print("- Cultural events: Solo or teams up to 8")
+        print("- Workshops: Individual registration")
+        print("Check specific event details for exact requirements.")
+
+    def tech_events(self):
+        print("\nBot: Technical events include:")
+        print("- Hackathon (36-hour coding marathon)")
+        print("- Coding Speedrun (Network Lab)")
+        print("- Quiz Runner (Room 121)")
+        print("- Fiducia (Auditorium)")
+        print("- And many more exciting competitions!")
+
+    def cultural_events(self):
+        print("\nBot: Cultural events include:")
+        print("- Mic Mania (Auditorium)")
+        print("- Groovify (Auditorium)")
+        print("- Group Dance (Auditorium)")
+        print("- Nukkad Natak (Parking Area)")
+        print("- Artist Night – Seedhe Maut Live Performance")
+
+    def open_stage(self):
+        print("\nBot: The Talent Show/Open Stage:")
+        print("- Happens throughout the festival")
+        print("- 5 minute slots per performer")
+        print("- Any talent welcome: singing, magic, comedy, etc.")
+        print("- Sign up at the registration desk")
+
+    def external_participation(self):
+        print("\nBot: External participants:")
+        print("- Yes! Students from other colleges can participate")
+        print("- Need valid college ID for registration")
+        print("- Some events may have restrictions")
+        print("- Check with event coordinators for details")
+
+    def registration_info(self):
+        print("\nBot: How to register:")
+        print("1. Online: Visit technovate2025.edu/register")
+        print("2. On-campus: Registration desk near main gate")
+        print("3. Fees: ₹150 for internal, ₹200 for external")
+        print("Early bird discounts available!")
+
+    def event_registration(self):
+        print("\nBot: To register for specific events:")
+        print("1. First complete general registration")
+        print("2. Then select events you want to participate in")
+        print("3. Some events may have additional fees")
+        print("You can register for multiple events!")
+
+    def accommodation_info(self):
+        print("\nBot: Accommodation options:")
+        print("- On-campus hostel: ₹500 per night (limited)")
+        print("- Partner hotels nearby (discounted rates)")
+        print("- Need to book in advance through our portal")
+        print("Contact accommodation@technovate2025.edu for queries")
+
+    def food_info(self):
+        print("\nBot: Food arrangements:")
+        print("- Food court with multiple cuisines")
+        print("- Meal coupons available (₹150 per meal)")
+        print("- Vegan and special diet options available")
+        print("- Outside food allowed in designated areas")
+
+    def contact_info(self):
+        print("\nBot: Contact us at:")
+        print("- Email: info@technovate2025.edu")
+        print("- Phone: +91 9876543210")
+        print("- Social: @Technovate2025 on all platforms")
+        print("Visit our website for more contact options")
+
+    def previous_theme(self):
+        print("\nBot: Last year's theme (2024) was:")
+        print("'Breaking Boundaries: Technology Meets Creativity'")
+
+    def celeb_guests(self):
+        print("\nBot: Celebrity guests include:")
+        print("- Artist Night – Seedhe Maut Live Performance")
+        print("- Special appearances by tech influencers")
+        print("(Full lineup will be announced soon)")
+
+    def past_sponsors(self):
+        print("\nBot: Our past sponsors include:")
+        print("- Tech companies and startups")
+        print("- Local businesses")
+        print("- Educational platforms")
+        print("Interested in sponsoring? Contact sponsor@technovate2025.edu")
+
+
+def run_chatbot():
+    bot = TechnovateBot()
+    bot.greet()
+    while True:
+        user_input = input("\nYou: ")
+        if user_input.lower() in ["exit", "quit", "bye"]:
+            print("Bot: Goodbye! Enjoy Technovate 6.0 🌟")
+            break
+        bot.handle_query(user_input)
+
+
+if __name__ == "__main__":
+    run_chatbot()
